@@ -95,9 +95,10 @@ jobs:
         run: |
           docker run -d --name gev -p 4173:4173 --read-only \
             --tmpfs /tmp --tmpfs /app/.gev-cache:uid=1000 --tmpfs /app/.gev-logs:uid=1000 \
-            --tmpfs /app/node_modules/.vite:uid=1000 "$IMAGE"
+            --tmpfs /app/node_modules/.vite:uid=1000 --tmpfs /app/node_modules/.vite-temp:uid=1000 "$IMAGE"
           for i in $(seq 1 60); do
-            curl -fsS -o /dev/null http://localhost:4173/logo.svg && break
+            curl -fsS -o /dev/null http://localhost:4173/logo.svg 2>/dev/null && break
+            [ "$(docker inspect -f '{{.State.Running}}' gev)" = true ] || { docker logs gev; exit 1; }
             sleep 2
           done
           curl -fsS http://localhost:4173/ | grep -qi '<html' || { docker logs gev; exit 1; }

@@ -30,8 +30,8 @@ RUN npm ci --no-audit --no-fund \
 
 COPY --chown=node:node . .
 RUN rm -rf .git .github pinokio .env .env.* \
-    && mkdir -p .gev-cache .gev-logs node_modules/.vite \
-    && chown -R node:node .gev-cache .gev-logs node_modules/.vite
+    && mkdir -p .gev-cache .gev-logs node_modules/.vite node_modules/.vite-temp \
+    && chown -R node:node .gev-cache .gev-logs node_modules/.vite node_modules/.vite-temp
 
 USER node
 EXPOSE 4173
