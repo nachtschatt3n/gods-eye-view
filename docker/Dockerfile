@@ -22,14 +22,22 @@ RUN apt-get update \
 
 WORKDIR /app
 COPY --chown=node:node package.json package-lock.json ./
-RUN npm ci --no-audit --no-fund \
+# Drop dev-only tooling (sharp/puppeteer/prettier) and lift vulnerable
+# transitive deps within their major — see docker/harden-deps.mjs. The lockfile
+# is re-resolved, so this is `npm install`, not `npm ci`; the resolved tree is
+# printed for the build log.
+COPY .cberg/harden-deps.mjs /tmp/harden-deps.mjs
+RUN node /tmp/harden-deps.mjs \
+    && npm install --no-audit --no-fund \
+    && (npm ls vite ws nanoid postcss --all || true) \
+    && rm /tmp/harden-deps.mjs \
     && npm cache clean --force \
     # the base image's GLOBAL npm is not touched by npm ci (self-built SOP trap 3)
     && npm install -g npm@latest \
     && npm cache clean --force
 
 COPY --chown=node:node . .
-RUN rm -rf .git .github pinokio .env .env.* \
+RUN rm -rf .git .github .cberg pinokio .env .env.* \
     && mkdir -p .gev-cache .gev-logs node_modules/.vite node_modules/.vite-temp \
     && chown -R node:node .gev-cache .gev-logs node_modules/.vite node_modules/.vite-temp
 

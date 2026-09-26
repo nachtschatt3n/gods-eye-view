@@ -58,6 +58,7 @@ jobs:
         run: |
           cp packaging/docker/Dockerfile app/Dockerfile
           cp packaging/docker/.dockerignore app/.dockerignore
+          mkdir -p app/.cberg && cp packaging/docker/harden-deps.mjs app/.cberg/
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -103,6 +104,10 @@ jobs:
           done
           curl -fsS http://localhost:4173/ | grep -qi '<html' || { docker logs gev; exit 1; }
           curl -fsS -o /dev/null http://localhost:4173/logo.svg || { docker logs gev; exit 1; }
+          # app module graph + server-side /api providers still load without dev tooling
+          curl -fsS -o /dev/null http://localhost:4173/src/main.js || { docker logs gev; exit 1; }
+          curl -fsS -o /dev/null http://localhost:4173/api/firms/status || { docker logs gev; exit 1; }
+          curl -fsS -o /dev/null http://localhost:4173/api/tomtom/status || { docker logs gev; exit 1; }
           docker logs gev 2>&1 | tail -20
           docker rm -f gev
 
