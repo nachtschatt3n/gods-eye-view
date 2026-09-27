@@ -20,6 +20,7 @@ on:
 permissions:
   contents: read
   packages: write
+  actions: write   # keepalive step re-enables this workflow
 
 env:
   REGISTRY: ghcr.io
@@ -78,6 +79,7 @@ jobs:
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.rel.outputs.version }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.rel.outputs.version }}-b${{ steps.rel.outputs.build }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:weekly
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.version=${{ steps.rel.outputs.version }}
@@ -117,6 +119,23 @@ jobs:
           VERSION: ${{ steps.rel.outputs.version }}
           BUILD: ${{ steps.rel.outputs.build }}
         run: |
-          docker push "$IMAGE:$VERSION"
+          # The plain <version> tag is published ONCE (first build of a new
+          # upstream release) and never overwritten afterwards: a tag someone
+          # may pin must not change content underneath them. Weekly rebuilds
+          # land only as <version>-b<YYYYMMDD> (+ weekly).
+          if docker buildx imagetools inspect "$IMAGE:$VERSION" >/dev/null 2>&1; then
+            echo "$IMAGE:$VERSION already exists -- not overwriting"
+          else
+            docker push "$IMAGE:$VERSION"
+          fi
           docker push "$IMAGE:$VERSION-b$BUILD"
+          docker push "$IMAGE:weekly"
           docker buildx imagetools inspect "$IMAGE:$VERSION-b$BUILD" --format '{{json .Manifest.Digest}}'
+
+      # GitHub disables scheduled workflows after 60 days without repo
+      # activity (ai-sre/solarfocus-scraper schedules died that way in July).
+      # Re-enabling on every run resets the timer.
+      - name: Keepalive (re-enable this workflow)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/container.yml/enable"
